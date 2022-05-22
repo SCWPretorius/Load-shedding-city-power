@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -114,10 +115,10 @@ type LoadShedTimes struct {
 	EndTime   time.Time
 }
 
-// The block for your suburb can be found on city powers site
-const selectedBlock = "2"
-
 func main() {
+	// The block for your suburb can be found on city powers site
+	selectedBlock := os.Getenv("SUBBLOCK")
+
 	stage, err := getCurrentStage()
 	fmt.Printf("%s %s\n", "Stage: ", stage)
 	if err != nil && stage == "" {
@@ -125,14 +126,14 @@ func main() {
 		return
 	}
 
-	schedule, err := fetchSchedule(stage)
+	schedule, err := fetchSchedule(stage, selectedBlock)
 	if err != nil {
 		fmt.Println("Error getting schedule from city power")
 		fmt.Println(err)
 		return
 	}
 
-	finalSchedule := getFinalSchedule(schedule)
+	finalSchedule := getFinalSchedule(schedule, selectedBlock)
 
 	// TODO: Add scheduler to monitor current stage and to update times
 	// TODO: push the data to home assistant
@@ -141,7 +142,7 @@ func main() {
 
 // getFinalSchedule iterates through the data returned by fetchSchedule and processes the data to only return the time slots
 // that load shedding will occur
-func getFinalSchedule(schedule Results) map[int]LoadShedTimes {
+func getFinalSchedule(schedule Results, selectedBlock string) map[int]LoadShedTimes {
 
 	loc, _ := time.LoadLocation("Africa/Johannesburg")
 	currentTime := time.Now().In(loc)
@@ -150,7 +151,7 @@ func getFinalSchedule(schedule Results) map[int]LoadShedTimes {
 	for idx, result := range schedule {
 		var loadShedTimes LoadShedTimes
 
-		if isBlockMatch(result.SubBlock) && result.StartDateQuery.In(loc).Day() == currentTime.Day() && result.StartDateQuery.In(loc).Month() == currentTime.Month() {
+		if isBlockMatch(result.SubBlock, selectedBlock) && result.StartDateQuery.In(loc).Day() == currentTime.Day() && result.StartDateQuery.In(loc).Month() == currentTime.Month() {
 			loadShedTimes.StartTime = result.StartDateQuery.In(loc)
 			loadShedTimes.EndTime = result.EndDateQuery.In(loc)
 			loadShedToday[idx] = loadShedTimes
@@ -160,7 +161,7 @@ func getFinalSchedule(schedule Results) map[int]LoadShedTimes {
 }
 
 // fetchSchedule fetches the raw data from city power and parses it into the structs
-func fetchSchedule(stage string) (Results, error) {
+func fetchSchedule(stage string, selectedBlock string) (Results, error) {
 	url := "https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=Title%20eq%20%27Stage" + stage + "%27%20and%20substringof(%27" + selectedBlock + "%27,%20SubBlock)&$top=1000"
 	client := &http.Client{}
 	request, err := http.NewRequest("GET", url, nil)
@@ -227,7 +228,7 @@ func getCurrentStage() (string, error) {
 }
 
 // isBlockMatch checks if the suburb block matches the one you need
-func isBlockMatch(subBlock string) bool {
+func isBlockMatch(subBlock string, selectedBlock string) bool {
 	split := strings.Split(subBlock, ";")
 	for _, s := range split {
 		if s == selectedBlock {

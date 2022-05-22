@@ -1,0 +1,6 @@
+https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=Title%20eq%20%27Stage1%27%20and%20substringof(%272%27,%20SubBlock)&$top=1000
+https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=Title%20eq%20%27Stage2%27%20and%20substringof(%272%27,%20SubBlock)&$top=1000
+https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=Title%20eq%20%27Stage3%27%20and%20substringof(%272%27,%20SubBlock)&$top=1000
+https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=Title%20eq%20%27Stage4%27%20and%20substringof(%272%27,%20SubBlock)&$top=1000
+
+https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=Title%20eq%20%27Stage3%27%20and%20substringof(%272%27,%20SubBlock)&$top=1000

@@ -119,7 +119,7 @@ const selectedBlock = "2"
 
 func main() {
 	stage, err := getCurrentStage()
-	fmt.Printf("%s %s", "Stage: ", stage)
+	fmt.Printf("%s %s\n", "Stage: ", stage)
 	if err != nil && stage == "" {
 		fmt.Println("Error getting current stage")
 		return
@@ -134,12 +134,9 @@ func main() {
 
 	finalSchedule := getFinalSchedule(schedule)
 
+	// TODO: Add scheduler to monitor current stage and to update times
 	// TODO: push the data to home assistant
 	fmt.Println(finalSchedule)
-}
-
-func getCurrentLoadSheddingStage() {
-
 }
 
 // getFinalSchedule iterates through the data returned by fetchSchedule and processes the data to only return the time slots
@@ -165,7 +162,6 @@ func getFinalSchedule(schedule Results) map[int]LoadShedTimes {
 // fetchSchedule fetches the raw data from city power and parses it into the structs
 func fetchSchedule(stage string) (Results, error) {
 	url := "https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=Title%20eq%20%27Stage" + stage + "%27%20and%20substringof(%27" + selectedBlock + "%27,%20SubBlock)&$top=1000"
-	fmt.Println(url)
 	client := &http.Client{}
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -190,6 +186,7 @@ func fetchSchedule(stage string) (Results, error) {
 	return jsonResponse.D.Results, nil
 }
 
+// getCurrentStage get the current load shedding stage from Eskom
 func getCurrentStage() (string, error) {
 	url := "https://loadshedding.eskom.co.za/LoadShedding/GetStatus"
 	client := &http.Client{}

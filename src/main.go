@@ -118,33 +118,49 @@ type LoadShedTimes struct {
 func main() {
 	// The block for your suburb can be found on city powers site
 	selectedBlock := os.Getenv("SUBBLOCK")
+	tz := os.Getenv("TZ")
+	loc, _ := time.LoadLocation(tz)
 
-	stage, err := getCurrentStage()
-	fmt.Printf("%s %s\n", "Stage: ", stage)
-	if err != nil && stage == "" {
-		fmt.Println("Error getting current stage")
-		return
-	}
+	var err error
+	var stage string
+	go func() {
+		for {
+			stage, err = getCurrentStage()
+			fmt.Printf("%s %s\n", "Stage: ", stage)
+			if err != nil && stage == "" {
+				fmt.Println("Error getting current stage")
+				fmt.Println(err)
+				continue
+			}
+			time.Sleep(10 * time.Minute)
+		}
+	}()
 
-	schedule, err := fetchSchedule(stage, selectedBlock)
-	if err != nil {
-		fmt.Println("Error getting schedule from city power")
-		fmt.Println(err)
-		return
-	}
+	var schedule Results
+	go func() {
+		for {
+			if stage != "" {
+				schedule, err = fetchSchedule(stage, selectedBlock)
+				if err != nil {
+					fmt.Println("Error getting schedule from city power")
+					fmt.Println(err)
+					continue
+				}
+			}
+			time.Sleep(12 * time.Hour) // TODO: Change to schedule for specific times
+		}
+	}()
 
-	finalSchedule := getFinalSchedule(schedule, selectedBlock)
+	finalSchedule := getFinalSchedule(schedule, selectedBlock, loc)
 
-	// TODO: Add scheduler to monitor current stage and to update times
-	// TODO: push the data to home assistant
+	// TODO: Integrate with HA addon
 	fmt.Println(finalSchedule)
 }
 
 // getFinalSchedule iterates through the data returned by fetchSchedule and processes the data to only return the time slots
 // that load shedding will occur
-func getFinalSchedule(schedule Results, selectedBlock string) map[int]LoadShedTimes {
+func getFinalSchedule(schedule Results, selectedBlock string, loc *time.Location) map[int]LoadShedTimes {
 
-	loc, _ := time.LoadLocation("Africa/Johannesburg")
 	currentTime := time.Now().In(loc)
 
 	loadShedToday := make(map[int]LoadShedTimes)

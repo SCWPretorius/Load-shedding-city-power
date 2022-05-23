@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -110,19 +112,31 @@ type Results []struct {
 	GUID                 string    `json:"GUID"`
 }
 
-type LoadShedTimes struct {
+type LoadSheddingTimes struct {
 	StartTime time.Time
 	EndTime   time.Time
 }
 
+type FinalSchedule struct {
+	LoadSheddingTimes []LoadSheddingTimes
+	CurrentStage      string
+}
+
+var stage string
+var selectedBlock string
+var loc *time.Location
+
 func main() {
 	// The block for your suburb can be found on city powers site
-	selectedBlock := os.Getenv("SUBBLOCK")
+	selectedBlock = os.Getenv("SUBBLOCK")
+	port := os.Getenv("PORT")
 	tz := os.Getenv("TZ")
-	loc, _ := time.LoadLocation(tz)
+	loc, _ = time.LoadLocation(tz)
+
+	router := mux.NewRouter().StrictSlash(true)
+	router.HandleFunc("/get-schedule", getLoadSheddingSchedule)
 
 	var err error
-	var stage string
 	go func() {
 		for {
 			stage, err = getCurrentStage()
@@ -136,41 +150,47 @@ func main() {
 		}
 	}()
 
+	// serve the app
+	fmt.Printf("%s: %s\n", "Server started at port", port)
+	port = ":" + port
+	log.Fatal(http.ListenAndServe(port, router))
+}
+
+func getLoadSheddingSchedule(w http.ResponseWriter, r *http.Request) {
 	var schedule Results
-	go func() {
-		for {
-			if stage != "" {
-				schedule, err = fetchSchedule(stage, selectedBlock)
-				if err != nil {
-					fmt.Println("Error getting schedule from city power")
-					fmt.Println(err)
-					continue
-				}
-			}
-			time.Sleep(12 * time.Hour) // TODO: Change to schedule for specific times
+	var err error
+
+	if stage != "" {
+		schedule, err = fetchSchedule(stage, selectedBlock)
+		if err != nil {
+			fmt.Println("Error getting schedule from city power")
+			fmt.Println(err)
 		}
-	}()
+	}
 
-	finalSchedule := getFinalSchedule(schedule, selectedBlock, loc)
+	var finalSchedule FinalSchedule
+	finalSchedule.LoadSheddingTimes = getFinalSchedule(schedule, selectedBlock, loc)
+	finalSchedule.CurrentStage = stage
 
-	// TODO: Integrate with HA addon
-	fmt.Println(finalSchedule)
+	err = json.NewEncoder(w).Encode(finalSchedule)
+	if err != nil {
+		return
+	}
 }
 
 // getFinalSchedule iterates through the data returned by fetchSchedule and processes the data to only return the time slots
 // that load shedding will occur
-func getFinalSchedule(schedule Results, selectedBlock string, loc *time.Location) map[int]LoadShedTimes {
+func getFinalSchedule(schedule Results, selectedBlock string, loc *time.Location) []LoadSheddingTimes {
 
 	currentTime := time.Now().In(loc)
 
-	loadShedToday := make(map[int]LoadShedTimes)
-	for idx, result := range schedule {
-		var loadShedTimes LoadShedTimes
-
+	var loadShedToday []LoadSheddingTimes
+	for _, result := range schedule {
 		if isBlockMatch(result.SubBlock, selectedBlock) && result.StartDateQuery.In(loc).Day() == currentTime.Day() && result.StartDateQuery.In(loc).Month() == currentTime.Month() {
+			var loadShedTimes LoadSheddingTimes
 			loadShedTimes.StartTime = result.StartDateQuery.In(loc)
 			loadShedTimes.EndTime = result.EndDateQuery.In(loc)
-			loadShedToday[idx] = loadShedTimes
+			loadShedToday = append(loadShedToday, loadShedTimes)
 		}
 	}
 	return loadShedToday

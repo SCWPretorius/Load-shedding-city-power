@@ -1,6 +1,7 @@
 package main
 
 import (
+	"CityPowerLoadShedding/src/types"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -11,116 +12,6 @@ import (
 	"strings"
 	"time"
 )
-
-type JsonResponse struct {
-	D D
-}
-
-type D struct {
-	Results Results
-}
-
-type Results []struct {
-	Metadata struct {
-		Id   string `json:"id"`
-		Uri  string `json:"uri"`
-		Etag string `json:"etag"`
-		Type string `json:"type"`
-	} `json:"__metadata"`
-	FirstUniqueAncestorSecurableObject struct {
-		Deferred struct {
-			Uri string `json:"uri"`
-		} `json:"__deferred"`
-	} `json:"FirstUniqueAncestorSecurableObject"`
-	RoleAssignments struct {
-		Deferred struct {
-			Uri string `json:"uri"`
-		} `json:"__deferred"`
-	} `json:"RoleAssignments"`
-	AttachmentFiles struct {
-		Deferred struct {
-			Uri string `json:"uri"`
-		} `json:"__deferred"`
-	} `json:"AttachmentFiles"`
-	ContentType struct {
-		Deferred struct {
-			Uri string `json:"uri"`
-		} `json:"__deferred"`
-	} `json:"ContentType"`
-	GetDlpPolicyTip struct {
-		Deferred struct {
-			Uri string `json:"uri"`
-		} `json:"__deferred"`
-	} `json:"GetDlpPolicyTip"`
-	FieldValuesAsHtml struct {
-		Deferred struct {
-			Uri string `json:"uri"`
-		} `json:"__deferred"`
-	} `json:"FieldValuesAsHtml"`
-	FieldValuesAsText struct {
-		Deferred struct {
-			Uri string `json:"uri"`
-		} `json:"__deferred"`
-	} `json:"FieldValuesAsText"`
-	FieldValuesForEdit struct {
-		Deferred struct {
-			Uri string `json:"uri"`
-		} `json:"__deferred"`
-	} `json:"FieldValuesForEdit"`
-	File struct {
-		Deferred struct {
-			Uri string `json:"uri"`
-		} `json:"__deferred"`
-	} `json:"File"`
-	Folder struct {
-		Deferred struct {
-			Uri string `json:"uri"`
-		} `json:"__deferred"`
-	} `json:"Folder"`
-	ParentList struct {
-		Deferred struct {
-			Uri string `json:"uri"`
-		} `json:"__deferred"`
-	} `json:"ParentList"`
-	FileSystemObjectType int       `json:"FileSystemObjectType"`
-	Id                   int       `json:"Id"`
-	ContentTypeId        string    `json:"ContentTypeId"`
-	Title                string    `json:"Title"`
-	Location             string    `json:"Location"`
-	EventDate            time.Time `json:"EventDate"`
-	EndDate              time.Time `json:"EndDate"`
-	Description          string    `json:"Description"`
-	FAllDayEvent         bool      `json:"fAllDayEvent"`
-	FRecurrence          bool      `json:"fRecurrence"`
-	ParticipantsPickerId string    `json:"ParticipantsPickerId"`
-	Category             string    `json:"Category"`
-	FreeBusy             string    `json:"FreeBusy"`
-	Overbook             string    `json:"Overbook"`
-	SubBlock             string    `json:"SubBlock"`
-	Reason               string    `json:"Reason"`
-	StageId              int       `json:"StageId"`
-	StartDateQuery       time.Time `json:"StartDateQuery"`
-	EndDateQuery         time.Time `json:"EndDateQuery"`
-	LoadShed             int       `json:"LoadShed"`
-	ID                   int       `json:"ID"`
-	Modified             time.Time `json:"Modified"`
-	Created              time.Time `json:"Created"`
-	AuthorId             int       `json:"AuthorId"`
-	EditorId             int       `json:"EditorId"`
-	ODataUIVersionString string    `json:"OData__UIVersionString"`
-	Attachments          bool      `json:"Attachments"`
-	GUID                 string    `json:"GUID"`
-}
-
-type LoadSheddingTimes struct {
-	StartTime time.Time
-	EndTime   time.Time
-}
-
-type FinalSchedule struct {
-	LoadSheddingTimes []LoadSheddingTimes
-	CurrentStage      string
-}
 
 var stage string
 var selectedBlock string
@@ -157,7 +48,7 @@ func main() {
 }
 
 func getLoadSheddingSchedule(w http.ResponseWriter, r *http.Request) {
-	var schedule Results
+	var schedule types.Results
 	var err error
 
 	if stage != "" {
@@ -166,38 +57,43 @@ func getLoadSheddingSchedule(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("Error getting schedule from city power")
 			fmt.Println(err)
 		}
-	}
 
-	var finalSchedule FinalSchedule
-	finalSchedule.LoadSheddingTimes = getFinalSchedule(schedule, selectedBlock, loc)
-	finalSchedule.CurrentStage = stage
+		var finalSchedule types.FinalSchedule
+		finalSchedule.LoadSheddingTimes = getFinalSchedule(schedule, selectedBlock, loc)
+		finalSchedule.CurrentStage = stage
 
-	err = json.NewEncoder(w).Encode(finalSchedule)
-	if err != nil {
-		return
+		err = json.NewEncoder(w).Encode(finalSchedule)
+		if err != nil {
+			return
+		}
 	}
+	return
 }
 
 // getFinalSchedule iterates through the data returned by fetchSchedule and processes the data to only return the time slots
 // that load shedding will occur
-func getFinalSchedule(schedule Results, selectedBlock string, loc *time.Location) []LoadSheddingTimes {
+func getFinalSchedule(schedule types.Results, selectedBlock string, loc *time.Location) []types.LoadSheddingTimes {
 
 	currentTime := time.Now().In(loc)
 
-	var loadShedToday []LoadSheddingTimes
+	var loadShedToday []types.LoadSheddingTimes
 	for _, result := range schedule {
 		if isBlockMatch(result.SubBlock, selectedBlock) && result.StartDateQuery.In(loc).Day() == currentTime.Day() && result.StartDateQuery.In(loc).Month() == currentTime.Month() {
-			var loadShedTimes LoadSheddingTimes
+			var loadShedTimes types.LoadSheddingTimes
 			loadShedTimes.StartTime = result.StartDateQuery.In(loc)
 			loadShedTimes.EndTime = result.EndDateQuery.In(loc)
 			loadShedToday = append(loadShedToday, loadShedTimes)
 		}
 	}
-	return loadShedToday
+
+	if len(loadShedToday) > 0 {
+		return loadShedToday
+	}
+	return []types.LoadSheddingTimes{}
 }
 
 // fetchSchedule fetches the raw data from city power and parses it into the structs
-func fetchSchedule(stage string, selectedBlock string) (Results, error) {
+func fetchSchedule(stage string, selectedBlock string) (types.Results, error) {
 	url := "https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=Title%20eq%20%27Stage" + stage + "%27%20and%20substringof(%27" + selectedBlock + "%27,%20SubBlock)&$top=1000"
 	client := &http.Client{}
 	request, err := http.NewRequest("GET", url, nil)
@@ -215,10 +111,10 @@ func fetchSchedule(stage string, selectedBlock string) (Results, error) {
 		return nil, err
 	}
 
-	var jsonResponse JsonResponse
+	var jsonResponse types.JsonResponse
 	err = json.Unmarshal([]byte(body), &jsonResponse)
 	if err != nil {
-		return Results{}, err
+		return types.Results{}, err
 	}
 	return jsonResponse.D.Results, nil
 }
@@ -235,7 +131,7 @@ func getCurrentStage() (string, error) {
 	request.Header.Set("accept", "application/json;odata=verbose")
 	response, err := client.Do(request)
 	if err != nil {
-		return "", err
+		return "", err // TODO: Improve error handling when Eskom fails
 	}
 
 	body, err := ioutil.ReadAll(response.Body)

@@ -78,10 +78,11 @@ func getFinalSchedule(schedule types.Results, selectedBlock string, loc *time.Lo
 
 	var loadShedToday []types.LoadSheddingTimes
 	for _, result := range schedule {
-		if isBlockMatch(result.SubBlock, selectedBlock) && result.StartDateQuery.In(loc).Day() == currentTime.Day() && result.StartDateQuery.In(loc).Month() == currentTime.Month() {
+		if isBlockMatch(result.SubBlock, selectedBlock) && (result.StartDateQuery.In(loc).Day() == currentTime.Day() || result.StartDateQuery.In(loc).Day() == time.Now().AddDate(0, 0, 1).In(loc).Day()) && result.StartDateQuery.In(loc).Month() == currentTime.Month() {
 			var loadShedTimes types.LoadSheddingTimes
 			loadShedTimes.StartTime = result.StartDateQuery.In(loc)
 			loadShedTimes.EndTime = result.EndDateQuery.In(loc)
+			loadShedTimes.Stage = result.StageId
 			loadShedToday = append(loadShedToday, loadShedTimes)
 		}
 	}
@@ -94,7 +95,7 @@ func getFinalSchedule(schedule types.Results, selectedBlock string, loc *time.Lo
 
 // fetchSchedule fetches the raw data from city power and parses it into the structs
 func fetchSchedule(stage string, selectedBlock string) (types.Results, error) {
-	url := "https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=Title%20eq%20%27Stage" + stage + "%27%20and%20substringof(%27" + selectedBlock + "%27,%20SubBlock)&$top=1000"
+	url := "https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=substringof(%27" + selectedBlock + "%27,%20SubBlock)&$top=1000"
 	client := &http.Client{}
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {

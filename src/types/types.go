@@ -105,6 +105,7 @@ type Results []struct {
 type LoadSheddingTimes struct {
 	StartTime time.Time
 	EndTime   time.Time
+	Stage     int
 }
 
 type FinalSchedule struct {

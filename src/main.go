@@ -21,7 +21,8 @@ func main() {
 	// The block for your suburb can be found on city powers site
 	selectedBlock = os.Getenv("SUBBLOCK")
 	port := os.Getenv("PORT")
-	tz := os.Getenv("TZ")
+	//tz := os.Getenv("TZ")
+	tz := "Africa/Johannesburg"
 	loc, _ = time.LoadLocation(tz)
 
 	router := mux.NewRouter().StrictSlash(true)
@@ -92,11 +93,13 @@ func getFinalSchedule(schedule types.Results, selectedBlock string, loc *time.Lo
 					loadShedTimes.EndTime = result.EndDateQuery.In(loc)
 					loadShedTimes.Stage = result.StageId
 					loadShedToday = append(loadShedToday, loadShedTimes)
+					fmt.Printf("%s - %s (Stage %d)\n", loadShedTimes.StartTime.In(loc).Format("Mon 02-Jan-06 15:04:05 MST"), loadShedTimes.EndTime.In(loc).Format("Mon 02-Jan-06 15:04:05 MST"), loadShedTimes.Stage)
 				}
 			}
 	 	}
 
 	}
+	fmt.Printf("\n")
 /*
 	for _, result := range schedule {
 		if isBlockMatch(result.SubBlock, selectedBlock) && (result.StartDateQuery.In(loc).Day() == currentTime.Day() || result.StartDateQuery.In(loc).Day() == time.Now().AddDate(0, 0, 1).In(loc).Day()) && result.StartDateQuery.In(loc).Month() == currentTime.Month() {

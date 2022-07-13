@@ -108,6 +108,12 @@ type LoadSheddingTimes struct {
 	Stage     int
 }
 
+type StageTimes struct {
+	StartTime time.Time
+	EndTime   time.Time
+	Stage     int
+}
+
 type FinalSchedule struct {
 	LoadSheddingTimes []LoadSheddingTimes
 	CurrentStage      string

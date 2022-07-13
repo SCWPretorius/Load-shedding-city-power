@@ -76,7 +76,33 @@ func getFinalSchedule(schedule types.Results, selectedBlock string, loc *time.Lo
 
 	currentTime := time.Now().In(loc)
 
+	StageTimesJson := `[{"StartTime":"2022-07-13T22:00:00Z","EndTime":"2022-07-13T03:00:00Z","Stage":2},{"StartTime":"2022-07-13T03:00:00Z","EndTime":"2022-07-13T14:00:00Z","Stage":3},{"StartTime":"2022-07-13T14:00:00Z","EndTime":"2022-07-14T22:00:00Z","Stage":4},{"StartTime":"2022-07-14T22:00:00Z","EndTime":"2022-07-14T03:00:00Z","Stage":2},{"StartTime":"2022-07-14T03:00:00Z","EndTime":"2022-07-14T14:00:00Z","Stage":3},{"StartTime":"2022-07-14T14:00:00Z","EndTime":"2022-07-15T22:00:00Z","Stage":4},{"StartTime":"2022-07-15T22:00:00Z","EndTime":"2022-07-15T03:00:00Z","Stage":2},{"StartTime":"2022-07-15T03:00:00Z","EndTime":"2022-07-16T22:00:00Z","Stage":3}]`
+	var stageTimes []types.StageTimes
+	json.Unmarshal([]byte(StageTimesJson), &stageTimes)
+
+        ScheduleRawJson := `[{"StartTime":"2022-07-12T00:00:00Z","EndTime":"2022-07-12T02:30:00Z","Stage":6},{"StartTime":"2022-07-12T06:00:00Z","EndTime":"2022-07-12T08:30:00Z","Stage":1},{"StartTime":"2022-07-12T06:00:00Z","EndTime":"2022-07-12T08:30:00Z","Stage":2},{"StartTime":"2022-07-12T06:00:00Z","EndTime":"2022-07-12T08:30:00Z","Stage":3},{"StartTime":"2022-07-12T06:00:00Z","EndTime":"2022-07-12T08:30:00Z","Stage":4},{"StartTime":"2022-07-12T06:00:00Z","EndTime":"2022-07-12T08:30:00Z","Stage":5},{"StartTime":"2022-07-12T06:00:00Z","EndTime":"2022-07-12T08:30:00Z","Stage":6},{"StartTime":"2022-07-12T08:00:00Z","EndTime":"2022-07-12T10:30:00Z","Stage":5},{"StartTime":"2022-07-12T08:00:00Z","EndTime":"2022-07-12T10:30:00Z","Stage":6},{"StartTime":"2022-07-12T14:00:00Z","EndTime":"2022-07-12T16:30:00Z","Stage":4},{"StartTime":"2022-07-12T14:00:00Z","EndTime":"2022-07-12T16:30:00Z","Stage":5},{"StartTime":"2022-07-12T14:00:00Z","EndTime":"2022-07-12T16:30:00Z","Stage":6},{"StartTime":"2022-07-13T04:00:00Z","EndTime":"2022-07-13T06:30:00Z","Stage":2},{"StartTime":"2022-07-13T04:00:00Z","EndTime":"2022-07-13T06:30:00Z","Stage":3},{"StartTime":"2022-07-13T04:00:00Z","EndTime":"2022-07-13T06:30:00Z","Stage":4},{"StartTime":"2022-07-13T04:00:00Z","EndTime":"2022-07-13T06:30:00Z","Stage":5},{"StartTime":"2022-07-13T04:00:00Z","EndTime":"2022-07-13T06:30:00Z","Stage":6},{"StartTime":"2022-07-13T06:00:00Z","EndTime":"2022-07-13T08:30:00Z","Stage":6},{"StartTime":"2022-07-13T12:00:00Z","EndTime":"2022-07-13T14:30:00Z","Stage":1},{"StartTime":"2022-07-13T12:00:00Z","EndTime":"2022-07-13T14:30:00Z","Stage":2},{"StartTime":"2022-07-13T12:00:00Z","EndTime":"2022-07-13T14:30:00Z","Stage":3},{"StartTime":"2022-07-13T12:00:00Z","EndTime":"2022-07-13T14:30:00Z","Stage":4},{"StartTime":"2022-07-13T12:00:00Z","EndTime":"2022-07-13T14:30:00Z","Stage":5},{"StartTime":"2022-07-13T12:00:00Z","EndTime":"2022-07-13T14:30:00Z","Stage":6},{"StartTime":"2022-07-13T20:00:00Z","EndTime":"2022-07-13T22:30:00Z","Stage":4},{"StartTime":"2022-07-13T20:00:00Z","EndTime":"2022-07-13T22:30:00Z","Stage":5},{"StartTime":"2022-07-13T20:00:00Z","EndTime":"2022-07-13T22:30:00Z","Stage":6}]`
+	var scheduleTimes []types.LoadSheddingTimes
+	json.Unmarshal([]byte(ScheduleRawJson), &scheduleTimes)
+
 	var loadShedToday []types.LoadSheddingTimes
+
+
+	for k := range stageTimes {
+		for _, result := range schedule {
+			if isBlockMatch(result.SubBlock, selectedBlock) && (result.StartDateQuery.In(loc).Day() == currentTime.Day() || result.StartDateQuery.In(loc).Day() == time.Now().AddDate(0, 0, 1).In(loc).Day()) && result.StartDateQuery.In(loc).Month() == currentTime.Month() {
+//				if (((result.StartDateQuery.In(loc).Equal(stageTimes[k].StartTime.In(loc)) || result.StartDateQuery.In(loc).After(stageTimes[k].StartTime.In(loc))) && (result.EndDateQuery.In(loc).Equal(stageTimes[k].EndTime.In(loc)) || result.EndDateQuery.In(loc).Before(stageTimes[k].EndTime.In(loc)))) && result.StageId == stageTimes[k].Stage) {
+				if (result.StartDateQuery.In(loc).After(stageTimes[k].StartTime.In(loc)) && result.EndDateQuery.In(loc).Before(stageTimes[k].EndTime.In(loc)) && result.StageId == stageTimes[k].Stage) {
+					var loadShedTimes types.LoadSheddingTimes
+					loadShedTimes.StartTime = result.StartDateQuery.In(loc)
+					loadShedTimes.EndTime = result.EndDateQuery.In(loc)
+					loadShedTimes.Stage = result.StageId
+					loadShedToday = append(loadShedToday, loadShedTimes)
+				}
+			}
+	 	}
+
+	}
+/*
 	for _, result := range schedule {
 		if isBlockMatch(result.SubBlock, selectedBlock) && (result.StartDateQuery.In(loc).Day() == currentTime.Day() || result.StartDateQuery.In(loc).Day() == time.Now().AddDate(0, 0, 1).In(loc).Day()) && result.StartDateQuery.In(loc).Month() == currentTime.Month() {
 			var loadShedTimes types.LoadSheddingTimes
@@ -86,10 +112,11 @@ func getFinalSchedule(schedule types.Results, selectedBlock string, loc *time.Lo
 			loadShedToday = append(loadShedToday, loadShedTimes)
 		}
 	}
-
+*/
 	if len(loadShedToday) > 0 {
 		return loadShedToday
 	}
+
 	return []types.LoadSheddingTimes{}
 }
 

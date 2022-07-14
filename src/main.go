@@ -18,7 +18,7 @@ var selectedBlock string
 var loc *time.Location
 
 func main() {
-	// The block for your suburb can be found on city powers site
+	// The block for your suburb can be found on city powers site, see the spreadsheet attached
 	selectedBlock = os.Getenv("SUBBLOCK")
 	port := os.Getenv("PORT")
 	tz := "Africa/Johannesburg"

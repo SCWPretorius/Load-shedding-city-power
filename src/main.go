@@ -21,7 +21,8 @@ func main() {
 	// The block for your suburb can be found on city powers site
 	selectedBlock = os.Getenv("SUBBLOCK")
 	port := os.Getenv("PORT")
-	tz := os.Getenv("TZ")
+	//tz := os.Getenv("TZ")
+	tz := "Africa/Johannesburg"
 	loc, _ = time.LoadLocation(tz)
 
 	router := mux.NewRouter().StrictSlash(true)
@@ -76,25 +77,50 @@ func getFinalSchedule(schedule types.Results, selectedBlock string, loc *time.Lo
 
 	currentTime := time.Now().In(loc)
 
+	StageTimesJson := `[{"StartTime":"2022-07-13T22:00:00Z","EndTime":"2022-07-13T03:00:00Z","Stage":2},{"StartTime":"2022-07-13T03:00:00Z","EndTime":"2022-07-13T14:00:00Z","Stage":3},{"StartTime":"2022-07-13T14:00:00Z","EndTime":"2022-07-14T22:00:00Z","Stage":4},{"StartTime":"2022-07-14T22:00:00Z","EndTime":"2022-07-14T03:00:00Z","Stage":2},{"StartTime":"2022-07-14T03:00:00Z","EndTime":"2022-07-14T14:00:00Z","Stage":3},{"StartTime":"2022-07-14T14:00:00Z","EndTime":"2022-07-15T22:00:00Z","Stage":4},{"StartTime":"2022-07-15T22:00:00Z","EndTime":"2022-07-15T03:00:00Z","Stage":2},{"StartTime":"2022-07-15T03:00:00Z","EndTime":"2022-07-16T22:00:00Z","Stage":3}]`
+	var stageTimes []types.StageTimes
+	json.Unmarshal([]byte(StageTimesJson), &stageTimes)
+
 	var loadShedToday []types.LoadSheddingTimes
+
+	for k := range stageTimes {
+		for _, result := range schedule {
+			if isBlockMatch(result.SubBlock, selectedBlock) && (result.StartDateQuery.In(loc).Day() == currentTime.Day() || result.StartDateQuery.In(loc).Day() == time.Now().AddDate(0, 0, 1).In(loc).Day()) && result.StartDateQuery.In(loc).Month() == currentTime.Month() {
+//				if (((result.StartDateQuery.In(loc).Equal(stageTimes[k].StartTime.In(loc)) || result.StartDateQuery.In(loc).After(stageTimes[k].StartTime.In(loc))) && (result.EndDateQuery.In(loc).Equal(stageTimes[k].EndTime.In(loc)) || result.EndDateQuery.In(loc).Before(stageTimes[k].EndTime.In(loc)))) && result.StageId == stageTimes[k].Stage) {
+				if (result.StartDateQuery.In(loc).After(stageTimes[k].StartTime.In(loc)) && result.EndDateQuery.In(loc).Before(stageTimes[k].EndTime.In(loc)) && result.StageId == stageTimes[k].Stage) {
+					var loadShedTimes types.LoadSheddingTimes
+					loadShedTimes.StartTime = result.StartDateQuery.In(loc)
+					loadShedTimes.EndTime = result.EndDateQuery.In(loc)
+					loadShedTimes.Stage = result.StageId
+					loadShedToday = append(loadShedToday, loadShedTimes)
+					fmt.Printf("%s - %s (Stage %d)\n", loadShedTimes.StartTime.In(loc).Format("Mon 02-Jan-06 15:04:05 MST"), loadShedTimes.EndTime.In(loc).Format("Mon 02-Jan-06 15:04:05 MST"), loadShedTimes.Stage)
+				}
+			}
+	 	}
+
+	}
+	fmt.Printf("\n")
+/*
 	for _, result := range schedule {
-		if isBlockMatch(result.SubBlock, selectedBlock) && result.StartDateQuery.In(loc).Day() == currentTime.Day() && result.StartDateQuery.In(loc).Month() == currentTime.Month() {
+		if isBlockMatch(result.SubBlock, selectedBlock) && (result.StartDateQuery.In(loc).Day() == currentTime.Day() || result.StartDateQuery.In(loc).Day() == time.Now().AddDate(0, 0, 1).In(loc).Day()) && result.StartDateQuery.In(loc).Month() == currentTime.Month() {
 			var loadShedTimes types.LoadSheddingTimes
 			loadShedTimes.StartTime = result.StartDateQuery.In(loc)
 			loadShedTimes.EndTime = result.EndDateQuery.In(loc)
+			loadShedTimes.Stage = result.StageId
 			loadShedToday = append(loadShedToday, loadShedTimes)
 		}
 	}
-
+*/
 	if len(loadShedToday) > 0 {
 		return loadShedToday
 	}
+
 	return []types.LoadSheddingTimes{}
 }
 
 // fetchSchedule fetches the raw data from city power and parses it into the structs
 func fetchSchedule(stage string, selectedBlock string) (types.Results, error) {
-	url := "https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=Title%20eq%20%27Stage" + stage + "%27%20and%20substringof(%27" + selectedBlock + "%27,%20SubBlock)&$top=1000"
+	url := "https://www.citypower.co.za/_api/web/lists/getByTitle('Loadshedding')/items?$select=*&$filter=substringof(%27" + selectedBlock + "%27,%20SubBlock)&$top=1000"
 	client := &http.Client{}
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
